@@ -16,118 +16,20 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "config.h"
-#include "wine/port.h"
-#include <stdarg.h>
-#include <stdlib.h>
-#include <wchar.h>
 #include "windef.h"
 #include "winbase.h"
-#include "winreg.h"
+#include "ntuser.h"
+#include "wine/unixlib.h"
 #include "wine/debug.h"
-#include "wine/library.h"
-#include "wine/unicode.h"
-#include <winscard.h>
+
+#include "winscard.h"
+#include "unixlib.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(winscard);
-
-static HMODULE WINSCARD_hModule;
 
 SCARD_IO_REQUEST g_rgSCardT0Pci = { SCARD_PROTOCOL_T0, 8 };
 SCARD_IO_REQUEST g_rgSCardT1Pci = { SCARD_PROTOCOL_T1, 8 };
 SCARD_IO_REQUEST g_rgSCardRawPci = { SCARD_PROTOCOL_RAW, 8 };
-
-
-#define MAX_PCSCLITE_READERNAME            52
-
-#ifdef __APPLE__
-
-#define DWORD_LITE	DWORD
-#define LPDWORD_LITE	LPDWORD
-
-#define SCARD_READERSTATE_LITE SCARD_READERSTATEA
-#define LPSCARD_READERSTATE_LITE LPSCARD_READERSTATEA
-
-
-#define SCARD_IO_REQUEST_LITE		SCARD_IO_REQUEST
-#define PSCARD_IO_REQUEST_LITE		PSCARD_IO_REQUEST
-#define LPSCARD_IO_REQUEST_LITE		LPSCARD_IO_REQUEST
-#define LPCSCARD_IO_REQUEST_LITE	LPCSCARD_IO_REQUEST
-
-#else
-
-typedef unsigned long  DWORD_LITE;
-typedef unsigned long* LPDWORD_LITE;
-
-typedef struct
-{
-        const char *szReader;
-        void *pvUserData;
-        unsigned long dwCurrentState;
-        unsigned long dwEventState;
-        unsigned long cbAtr;
-        unsigned char rgbAtr[33];
-}
-SCARD_READERSTATE_LITE;
-
-typedef SCARD_READERSTATE_LITE *LPSCARD_READERSTATE_LITE;
-
-typedef struct
-{
-        unsigned long dwProtocol;       /**< Protocol identifier */
-        unsigned long cbPciLength;      /**< Protocol Control Inf Length */
-}
-SCARD_IO_REQUEST_LITE, *PSCARD_IO_REQUEST_LITE, *LPSCARD_IO_REQUEST_LITE;
-
-typedef const SCARD_IO_REQUEST_LITE *LPCSCARD_IO_REQUEST_LITE;
-
-#endif
-
-/*
-  * pcsc-lite functions pointers
-  */
-typedef LONG (*SCardEstablishContextPtr)(DWORD_LITE dwScope,LPCVOID pvReserved1, LPCVOID pvReserved2, LPSCARDCONTEXT phContext);
-typedef LONG (*SCardReleaseContextPtr)(SCARDCONTEXT hContext);
-typedef LONG (*SCardIsValidContextPtr)(SCARDCONTEXT hContext);
-/* typedef LONG (*SCardSetTimeoutPtr)(SCARDCONTEXT hContext, DWORD dwTimeout); */
-typedef LONG (*SCardConnectPtr)(SCARDCONTEXT hContext,LPCSTR szReader,DWORD_LITE dwShareMode,DWORD_LITE dwPreferredProtocols,LPSCARDHANDLE phCard, LPDWORD_LITE pdwActiveProtocol);
-typedef LONG (*SCardReconnectPtr)(SCARDHANDLE hCard,DWORD_LITE dwShareMode,DWORD_LITE dwPreferredProtocols,DWORD_LITE dwInitialization, LPDWORD_LITE pdwActiveProtocol);
-typedef LONG (*SCardDisconnectPtr)(SCARDHANDLE hCard, DWORD_LITE dwDisposition);
-typedef LONG (*SCardBeginTransactionPtr)(SCARDHANDLE hCard);
-typedef LONG (*SCardEndTransactionPtr)(SCARDHANDLE hCard, DWORD_LITE dwDisposition);
-/* typedef LONG (*SCardCancelTransactionPtr)(SCARDHANDLE hCard); */
-typedef LONG (*SCardStatusPtr)(SCARDHANDLE hCard,LPSTR mszReaderNames, LPDWORD_LITE pcchReaderLen,LPDWORD_LITE pdwState,LPDWORD_LITE pdwProtocol,BYTE* pbAtr,LPDWORD_LITE pcbAtrLen);
-typedef LONG (*SCardGetStatusChangePtr)(SCARDCONTEXT hContext,DWORD_LITE dwTimeout,LPSCARD_READERSTATE_LITE rgReaderStates, DWORD_LITE cReaders);
-typedef LONG (*SCardControlPtr)(SCARDHANDLE hCard, DWORD_LITE dwControlCode,    LPCVOID pbSendBuffer, DWORD_LITE cbSendLength,LPVOID pbRecvBuffer, DWORD_LITE cbRecvLength, LPDWORD_LITE lpBytesReturned);
-typedef LONG (*SCardTransmitPtr)(SCARDHANDLE hCard,LPCSCARD_IO_REQUEST_LITE pioSendPci,const BYTE* pbSendBuffer, DWORD_LITE cbSendLength,LPSCARD_IO_REQUEST_LITE pioRecvPci,BYTE* pbRecvBuffer, LPDWORD_LITE pcbRecvLength);
-typedef LONG (*SCardListReaderGroupsPtr)(SCARDCONTEXT hContext,LPSTR mszGroups, LPDWORD_LITE pcchGroups);
-typedef LONG (*SCardListReadersPtr)(SCARDCONTEXT hContext,LPCSTR mszGroups,LPSTR mszReaders, LPDWORD_LITE pcchReaders);
-typedef LONG (*SCardCancelPtr)(SCARDCONTEXT hContext);
-typedef LONG (*SCardGetAttribPtr)(SCARDHANDLE hCard, DWORD_LITE dwAttrId,BYTE* pbAttr, LPDWORD_LITE pcbAttrLen);
-typedef LONG (*SCardSetAttribPtr)(SCARDHANDLE hCard, DWORD_LITE dwAttrId,const BYTE* pbAttr, DWORD_LITE cbAttrLen);  
-        
-SCardEstablishContextPtr     liteSCardEstablishContext     = NULL;
-SCardReleaseContextPtr         liteSCardReleaseContext     = NULL;
-SCardIsValidContextPtr         liteSCardIsValidContext         = NULL;
-/* SCardSetTimeoutPtr         liteSCardSetTimeout        = NULL; */
-SCardConnectPtr             liteSCardConnect            = NULL;
-SCardReconnectPtr            liteSCardReconnect            = NULL;
-SCardDisconnectPtr            liteSCardDisconnect        = NULL;        
-SCardBeginTransactionPtr    liteSCardBeginTransaction    = NULL;
-SCardEndTransactionPtr        liteSCardEndTransaction        = NULL;
-/* SCardCancelTransactionPtr    liteSCardCancelTransaction    = NULL; */
-SCardStatusPtr            liteSCardStatus            = NULL;
-SCardGetStatusChangePtr    liteSCardGetStatusChange    = NULL;
-SCardControlPtr            liteSCardControl            = NULL;
-SCardTransmitPtr            liteSCardTransmit            = NULL;
-SCardListReaderGroupsPtr    liteSCardListReaderGroups    = NULL;
-SCardListReadersPtr        liteSCardListReaders        = NULL;
-SCardCancelPtr            liteSCardCancel            = NULL;
-SCardGetAttribPtr            liteSCardGetAttrib            = NULL;
-SCardSetAttribPtr            liteSCardSetAttrib            = NULL;
-
-static void* g_pcscliteHandle = NULL;
-static BOOL InitializePCSCLite(void);
 
 #define PCSCLITE_SCARD_PROTOCOL_RAW    0x00000004
 
@@ -156,237 +58,29 @@ lite_proto2ms_proto(DWORD_LITE dwProtocol)
 HANDLE g_startedEvent = NULL;
 
 
+#define WINSCARD_CALL( func, params ) WINE_UNIX_CALL( unix_ ## func, params )
+
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-    TRACE("%p,%x,%p\n", hinstDLL, fdwReason, lpvReserved);
-
+    TRACE("%p, %#lx, %p\n", hinstDLL, fdwReason, lpvReserved);
+    
     switch (fdwReason) {
         case DLL_PROCESS_ATTACH:
         {
-        DisableThreadLibraryCalls(hinstDLL);
-        WINSCARD_hModule = hinstDLL;
-        InitializePCSCLite();
-        // FIXME: for now, we act as if the pcsc daemon is always started
-        g_startedEvent = CreateEventA(NULL,TRUE,TRUE,NULL);
-        break;
+            DisableThreadLibraryCalls(hinstDLL);
+            __wine_init_unix_call();
+            WINSCARD_CALL( process_attach, NULL );
+            g_startedEvent = CreateEventA(NULL,TRUE,TRUE,NULL);
+            break;
         }
         case DLL_PROCESS_DETACH:
         {
-        
-        CloseHandle(g_startedEvent);
-        
-        /* release PCSC-lite */
-        if(g_pcscliteHandle)
-        {
-            liteSCardEstablishContext     = NULL;
-            liteSCardReleaseContext     = NULL;
-            liteSCardIsValidContext         = NULL;
-            /* liteSCardSetTimeout        = NULL;*/
-            liteSCardConnect            = NULL;
-            liteSCardReconnect            = NULL;
-            liteSCardDisconnect        = NULL;        
-            liteSCardBeginTransaction    = NULL;
-            liteSCardEndTransaction        = NULL;
-            /* liteSCardCancelTransaction    = NULL; */
-            liteSCardStatus            = NULL;
-            liteSCardGetStatusChange    = NULL;
-            liteSCardControl            = NULL;
-            liteSCardTransmit            = NULL;
-            liteSCardListReaderGroups    = NULL;
-            liteSCardListReaders        = NULL;
-            liteSCardCancel            = NULL;
-            liteSCardGetAttrib            = NULL;
-            liteSCardSetAttrib            = NULL;    
-            wine_dlclose(g_pcscliteHandle,NULL,0);    
-            g_pcscliteHandle = NULL;            
-        }
-        break;
+            WINSCARD_CALL( process_detach, NULL );
+            CloseHandle(g_startedEvent);
+            break;
         }
     }
-
     return TRUE;
-}
-
-/*
- *  Initialize pcsc-lite pointers
- */
-
-static BOOL InitializePCSCLite(void)
-{
-    BOOL bStatus = FALSE;
-    if(g_pcscliteHandle)
-        bStatus = TRUE; /*already loaded*/
-    else
-    {
-        /* try to load pcsc-lite */
-        char szErr[256];
-#ifdef __APPLE__
-        g_pcscliteHandle = wine_dlopen("/System/Library/Frameworks/PCSC.framework/PCSC",RTLD_LAZY | RTLD_GLOBAL,szErr,sizeof(szErr));
-#else
-        g_pcscliteHandle = wine_dlopen("libpcsclite.so",RTLD_LAZY | RTLD_GLOBAL,szErr,sizeof(szErr));
-        if(!g_pcscliteHandle)
-        {
-            /* error occured. Trying libpcsclite.so.1*/
-            g_pcscliteHandle = wine_dlopen("libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL,szErr,sizeof(szErr));
-        }
-        if(!g_pcscliteHandle)
-        {
-#ifdef __LP64__
-			g_pcscliteHandle = wine_dlopen("/lib/x86_64-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL,szErr,sizeof(szErr));
-#else
-			g_pcscliteHandle = wine_dlopen("/lib/i386-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL,szErr,sizeof(szErr));
-#endif	
-        }
-#endif
-        if(!g_pcscliteHandle)
-        {
-            /* error occured*/
-#ifdef __APPLE__
-            WARN("loading PCSC framework failed.Error = %s \n",szErr);
-#else
-            WARN("loading libpcsclite.so failed.Error = %s \n",szErr);
-#endif
-        }
-        else
-        {
-            /* loading entry points*/
-            BOOL bSuccess = TRUE;
-            if(bSuccess && !(liteSCardEstablishContext = (SCardEstablishContextPtr) wine_dlsym(g_pcscliteHandle,"SCardEstablishContext",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardEstablishContext from pcsclite library. Error = %s\n",szErr);
-            }
-            
-            if(bSuccess && !(liteSCardReleaseContext = (SCardReleaseContextPtr) wine_dlsym(g_pcscliteHandle,"SCardReleaseContext",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardReleaseContext from pcsclite library. Error = %s\n",szErr);
-            }            
-
-            if(bSuccess && !(liteSCardIsValidContext = (SCardIsValidContextPtr) wine_dlsym(g_pcscliteHandle,"SCardIsValidContext",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardIsValidContext from pcsclite library. Error = %s\n",szErr);
-            }                    
-
-            /*if(bSuccess && !(liteSCardSetTimeout = (SCardSetTimeoutPtr) wine_dlsym(g_pcscliteHandle,"SCardSetTimeout",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardSetTimeout from pcsclite library. Error = %s\n",szErr);
-            }  */  
-            
-            if(bSuccess && !(liteSCardConnect = (SCardConnectPtr) wine_dlsym(g_pcscliteHandle,"SCardConnect",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardConnect from pcsclite library. Error = %s\n",szErr);
-            }                
-
-            if(bSuccess && !(liteSCardReconnect = (SCardReconnectPtr) wine_dlsym(g_pcscliteHandle,"SCardReconnect",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardReconnect from pcsclite library. Error = %s\n",szErr);
-            }            
-
-            if(bSuccess && !(liteSCardDisconnect = (SCardDisconnectPtr) wine_dlsym(g_pcscliteHandle,"SCardDisconnect",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardDisconnect from pcsclite library. Error = %s\n",szErr);
-            }                
-
-            if(bSuccess && !(liteSCardBeginTransaction = (SCardBeginTransactionPtr) wine_dlsym(g_pcscliteHandle,"SCardBeginTransaction",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardBeginTransaction from pcsclite library. Error = %s\n",szErr);
-            }            
-
-
-            if(bSuccess && !(liteSCardEndTransaction = (SCardEndTransactionPtr) wine_dlsym(g_pcscliteHandle,"SCardEndTransaction",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardEndTransaction from pcsclite library. Error = %s\n",szErr);
-            }            
-
-            /*if(bSuccess && !(liteSCardCancelTransaction = (SCardCancelTransactionPtr) wine_dlsym(g_pcscliteHandle,"SCardCancelTransaction",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardCancelTransaction from pcsclite library. Error = %s\n",szErr);
-            }*/
-            
-            if(bSuccess && !(liteSCardStatus = (SCardStatusPtr) wine_dlsym(g_pcscliteHandle,"SCardStatus",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardStatus from pcsclite library. Error = %s\n",szErr);
-            }
-            
-            if(bSuccess && !(liteSCardGetStatusChange = (SCardGetStatusChangePtr) wine_dlsym(g_pcscliteHandle,"SCardGetStatusChange",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardGetStatusChange from pcsclite library. Error = %s\n",szErr);
-            }
-            
-            if(bSuccess && !(liteSCardControl = (SCardControlPtr) wine_dlsym(g_pcscliteHandle,"SCardControl",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardControl from pcsclite library. Error = %s\n",szErr);
-            }            
-            
-            if(bSuccess && !(liteSCardTransmit = (SCardTransmitPtr) wine_dlsym(g_pcscliteHandle,"SCardTransmit",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardTransmit from pcsclite library. Error = %s\n",szErr);
-            }                        
-            
-            if(bSuccess && !(liteSCardListReaderGroups = (SCardListReaderGroupsPtr) wine_dlsym(g_pcscliteHandle,"SCardListReaderGroups",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardListReaderGroups from pcsclite library. Error = %s\n",szErr);
-            }        
-            
-            if(bSuccess && !(liteSCardListReaders = (SCardListReadersPtr) wine_dlsym(g_pcscliteHandle,"SCardListReaders",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardListReaders from pcsclite library. Error = %s\n",szErr);
-            }        
-            
-            if(bSuccess && !(liteSCardCancel = (SCardCancelPtr) wine_dlsym(g_pcscliteHandle,"SCardCancel",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardCancel from pcsclite library. Error = %s\n",szErr);
-            }        
-            
-            if(bSuccess && !(liteSCardGetAttrib = (SCardGetAttribPtr) wine_dlsym(g_pcscliteHandle,"SCardGetAttrib",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardGetAttrib from pcsclite library. Error = %s\n",szErr);
-            }        
-            
-            if(bSuccess && !(liteSCardSetAttrib = (SCardSetAttribPtr) wine_dlsym(g_pcscliteHandle,"SCardSetAttrib",szErr,sizeof(szErr))))
-            {
-                bSuccess = FALSE;
-                ERR("Failed to get SCardSetAttrib from pcsclite library. Error = %s\n",szErr);
-            }        
-
-            
-            if(!bSuccess)
-            {
-                /* a entry point is missing. unload the library */
-                wine_dlclose(g_pcscliteHandle,NULL,0);
-                g_pcscliteHandle = NULL;
-            }
-            else
-            {
-                /* fake establish context for make pcsclite 1.8.0 happy */
-                SCARDCONTEXT hContext;
-                liteSCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
-
-            }
-            
-            bStatus = bSuccess;
-            
-        }
-    }
-    
-    return bStatus;
 }
 
 static LPVOID SCardAllocate(DWORD dwLength)
@@ -460,8 +154,6 @@ static LONG ConvertListToANSI(LPCWSTR szListW,LPSTR* pszListA,LPDWORD pdwLength)
     
     return SCARD_S_SUCCESS;
 }
-
-
 
 /*
  * Convert a ANSII multi-string to a wide-char multi-string
@@ -555,20 +247,6 @@ HANDLE WINAPI SCardAccessNewReaderEvent(void)
     return NULL;
 }
 
-long WINAPI SCardReleaseAllEvents(void)
-{
-    FIXME("stub\n");
-
-    return SCARD_S_SUCCESS;
-}
-
-long WINAPI SCardReleaseNewReaderEvent(HANDLE hNewReaderEventHandle)
-{
-    FIXME("stub\n");
-
-    return SCARD_S_SUCCESS;
-}
-
 HANDLE WINAPI SCardAccessStartedEvent()
 {
     return g_startedEvent;
@@ -579,7 +257,6 @@ void WINAPI SCardReleaseStartedEvent(HANDLE hStartedEventHandle)
     /* do nothing  because we don't implement yet reference couting for the event handle*/
 }
 
-
 LONG WINAPI SCardFreeMemory( SCARDCONTEXT hContext,LPCVOID pvMem)
 {
     if(pvMem)
@@ -588,7 +265,7 @@ LONG WINAPI SCardFreeMemory( SCARDCONTEXT hContext,LPCVOID pvMem)
 }
 
 /*
- *  smar cards database functions. Almost all of them are stubs
+ *  smart cards database functions. Almost all of them are stubs
  */
 
 LONG WINAPI SCardListCardsA(
@@ -599,7 +276,7 @@ LONG WINAPI SCardListCardsA(
         LPSTR mszCards,
         LPDWORD pcchCards)
 {
-    TRACE("0x%08X %p %p %d %p %p - stub\n",(unsigned int) hContext,pbAtr,rgquidInterfaces,cguidInterfaceCount,mszCards,pcchCards);
+    TRACE("0x%08X, %p, %p, %#lx, %p, %p - stub\n",(unsigned int) hContext,pbAtr,rgquidInterfaces,cguidInterfaceCount,mszCards,pcchCards);
     
     /* we simuate the fact that no cards are enregistred on the system by returning an empty multi-string*/
     if(!pcchCards)
@@ -654,7 +331,7 @@ LONG WINAPI SCardListCardsW(
       LPWSTR mszCards,
       LPDWORD pcchCards)
 {
-    TRACE("0x%08X %p %p %d %p %p - stub\n",(unsigned int)hContext,pbAtr,rgquidInterfaces,cguidInterfaceCount,mszCards,pcchCards);
+    TRACE("0x%08X, %p, %p, %#lx, %p, %p - stub\n",(unsigned int)hContext,pbAtr,rgquidInterfaces,cguidInterfaceCount,mszCards,pcchCards);
     
     /* we simuate the fact that no cards are enregistred on the system by returning an empty multi-string*/    
     if(!pcchCards)
@@ -756,7 +433,7 @@ LONG WINAPI SCardGetCardTypeProviderNameA(
     LPSTR szProvider,
     LPDWORD pcchProvider)
 {
-    FIXME("0x%08X %s 0x%08X %p %p - stub\n",(unsigned int)hContext,debugstr_a(szCardName),dwProviderId,szProvider,pcchProvider);
+    FIXME("0x%08X %s %#lx %p %p - stub\n",(unsigned int)hContext,debugstr_a(szCardName),dwProviderId,szProvider,pcchProvider);
     
     return SCARD_E_UNKNOWN_CARD;
 }
@@ -768,7 +445,7 @@ LONG WINAPI SCardGetCardTypeProviderNameW(
     LPWSTR szProvider,
     LPDWORD pcchProvider)
 {
-    FIXME("0x%08X %s 0x%08X %p %p - stub\n",(unsigned int)hContext,debugstr_w(szCardName),dwProviderId,szProvider,pcchProvider);
+    FIXME("0x%08X %s %#lx %p %p - stub\n",(unsigned int)hContext,debugstr_w(szCardName),dwProviderId,szProvider,pcchProvider);
     
     return SCARD_E_UNKNOWN_CARD;    
 }
@@ -901,7 +578,7 @@ LONG WINAPI SCardIntroduceCardTypeA(
     const BYTE* pbAtrMask,
     DWORD cbAtrLen)
 {
-    FIXME("0x%08X %s %p %p %d %p %p %d - stub\n",(unsigned int) hContext, debugstr_a(szCardName),pguidPrimaryProvider,rgguidInterfaces,dwInterfaceCount,pbAtr,pbAtrMask,cbAtrLen);
+    FIXME("0x%08X %s %p %p %#lx %p %p %#lx - stub\n",(unsigned int) hContext, debugstr_a(szCardName),pguidPrimaryProvider,rgguidInterfaces,dwInterfaceCount,pbAtr,pbAtrMask,cbAtrLen);
     
     return SCARD_F_UNKNOWN_ERROR;
 }
@@ -916,7 +593,7 @@ LONG WINAPI SCardIntroduceCardTypeW(
     const BYTE* pbAtrMask,
     DWORD cbAtrLen)
 {
-    FIXME("0x%08X %s %p %p %d %p %p %d - stub\n",(unsigned int) hContext, debugstr_w(szCardName),pguidPrimaryProvider,rgguidInterfaces,dwInterfaceCount,pbAtr,pbAtrMask,cbAtrLen);
+    FIXME("0x%08X %s %p %p %#lx %p %p %#lx - stub\n",(unsigned int) hContext, debugstr_w(szCardName),pguidPrimaryProvider,rgguidInterfaces,dwInterfaceCount,pbAtr,pbAtrMask,cbAtrLen);
     
     return SCARD_F_UNKNOWN_ERROR;    
 }
@@ -928,7 +605,7 @@ LONG WINAPI SCardSetCardTypeProviderNameA(
     DWORD dwProviderId,
     LPCSTR szProvider)
 {
-    FIXME("0x%08X %s 0x%08X %s - stub\n",(unsigned int) hContext, debugstr_a(szCardName),dwProviderId,debugstr_a(szProvider));
+    FIXME("0x%08X %s %#lx %s - stub\n",(unsigned int) hContext, debugstr_a(szCardName),dwProviderId,debugstr_a(szProvider));
     
     return SCARD_F_UNKNOWN_ERROR;
 }
@@ -939,7 +616,7 @@ LONG WINAPI SCardSetCardTypeProviderNameW(
     DWORD dwProviderId,
     LPCWSTR szProvider)
 {
-    FIXME("0x%08X %s 0x%08X %s - stub\n",(unsigned int) hContext, debugstr_w(szCardName),dwProviderId,debugstr_w(szProvider));
+    FIXME("0x%08X %s %#lx %s - stub\n",(unsigned int) hContext, debugstr_w(szCardName),dwProviderId,debugstr_w(szProvider));
     
     return SCARD_F_UNKNOWN_ERROR;    
 }
@@ -968,7 +645,7 @@ LONG WINAPI SCardLocateCardsA(
     LPSCARD_READERSTATEA rgReaderStates,
     DWORD cReaders)
 {
-    FIXME("0x%08X %s %p %d - stub\n",(unsigned int) hContext, debugstr_a(mszCards),rgReaderStates,cReaders);
+    FIXME("0x%08X %s %p %#lx - stub\n",(unsigned int) hContext, debugstr_a(mszCards),rgReaderStates,cReaders);
     
     return SCARD_E_UNKNOWN_CARD;
 }
@@ -979,7 +656,7 @@ LONG WINAPI SCardLocateCardsW(
     LPSCARD_READERSTATEW rgReaderStates,
     DWORD cReaders)
 {
-    FIXME("0x%08X %s %p %d - stub\n",(unsigned int) hContext, debugstr_w(mszCards),rgReaderStates,cReaders);
+    FIXME("0x%08X %s %p %#lx - stub\n",(unsigned int) hContext, debugstr_w(mszCards),rgReaderStates,cReaders);
     
     return SCARD_E_UNKNOWN_CARD;    
 }
@@ -991,7 +668,7 @@ LONG WINAPI SCardLocateCardsByATRA(
     LPSCARD_READERSTATEA rgReaderStates,
     DWORD cReaders)
 {
-    FIXME("0x%08X %p %d %p %d - stub\n",(unsigned int) hContext, rgAtrMasks, cAtrs, rgReaderStates,  cReaders);
+    FIXME("0x%08X %p %#lx %p %#lx - stub\n",(unsigned int) hContext, rgAtrMasks, cAtrs, rgReaderStates,  cReaders);
     
     return SCARD_F_UNKNOWN_ERROR;
 }
@@ -1003,7 +680,7 @@ LONG WINAPI SCardLocateCardsByATRW(
     LPSCARD_READERSTATEW rgReaderStates,
     DWORD cReaders)
 {
-    FIXME("0x%08X %p %d %p %d - stub\n",(unsigned int) hContext, rgAtrMasks, cAtrs, rgReaderStates,  cReaders);
+    FIXME("0x%08X %p %#lx %p %#lx - stub\n",(unsigned int) hContext, rgAtrMasks, cAtrs, rgReaderStates,  cReaders);
     
     return SCARD_F_UNKNOWN_ERROR;    
 }
@@ -1015,13 +692,12 @@ LONG WINAPI SCardListReaderGroupsA(
 {    
     LONG lRet = SCARD_F_UNKNOWN_ERROR;
     DWORD_LITE len ;
+    struct SCardListReaderGroups_params params;
     
     TRACE(" 0x%08X %s %p\n",(unsigned int) hContext,debugstr_a(mszGroups),pcchGroups);
     
     if(!pcchGroups)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardListReaderGroups)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else if(mszGroups && *pcchGroups == SCARD_AUTOALLOCATE)
     {
         LPSTR* pmszGroups = (LPSTR*) mszGroups;
@@ -1029,7 +705,11 @@ LONG WINAPI SCardListReaderGroupsA(
         len = 0;
         
         /* ask for the length */
-        lRet = liteSCardListReaderGroups(hContext,NULL,&len);
+        params.hContext = hContext;
+        params.mszGroups = NULL;
+        params.pcchGroups = &len;
+        lRet = WINSCARD_CALL( SCardListReaderGroups, &params );
+
         if(SCARD_S_SUCCESS == lRet)
         {
             /* allocate memory for the list */
@@ -1039,7 +719,10 @@ LONG WINAPI SCardListReaderGroupsA(
             else
             {
                 /* fill the list */
-                lRet = liteSCardListReaderGroups(hContext,szList,&len);
+                params.hContext = hContext;
+                params.mszGroups = szList;
+                params.pcchGroups = &len;
+                lRet = WINSCARD_CALL( SCardListReaderGroups, &params );
                 if(SCARD_S_SUCCESS != lRet)
                     SCardFree(szList);
                 else
@@ -1048,19 +731,24 @@ LONG WINAPI SCardListReaderGroupsA(
                     *pcchGroups = (DWORD) len;        
                 }
             }
-        }                
-        
+        }  
     }
     else
 	{
+        params.hContext = hContext;
+        params.mszGroups = mszGroups;
+
 		if (pcchGroups)
 		{
 			len = *pcchGroups;
-        	lRet = liteSCardListReaderGroups(hContext,mszGroups,&len);
-			*pcchGroups = len;
-		}
-		else
-        	lRet = liteSCardListReaderGroups(hContext,mszGroups,NULL);
+            params.pcchGroups = &len;
+		} 
+        else 
+            params.pcchGroups = NULL;
+
+        lRet = WINSCARD_CALL( SCardListReaderGroups, &params );
+        if (pcchGroups)
+		    *pcchGroups = len;
 	}
     
     return TranslateToWin32(lRet);
@@ -1080,8 +768,6 @@ LONG WINAPI SCardListReaderGroupsW(
     
     if(!pcchGroups)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardListReaderGroups)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
     {
         if(!mszGroups)
@@ -1144,8 +830,6 @@ end_label:
     return TranslateToWin32(lRet);
     
 }
-    
-    
 
 LONG WINAPI SCardListReadersA(
         SCARDCONTEXT hContext,
@@ -1154,30 +838,34 @@ LONG WINAPI SCardListReadersA(
         LPDWORD pcchReaders)
 {
     LONG lRet;
-    TRACE(" 0x%08X %s %s %p\n",(unsigned int) hContext,debugstr_a(mszGroups),debugstr_a(mszReaders),pcchReaders);
+    TRACE("0x%p %s %s %ld\n",(void*)hContext, debugstr_a(mszGroups), debugstr_a(mszReaders), (pcchReaders==NULL?0:*pcchReaders));
     if(!pcchReaders)
         lRet = SCARD_E_INVALID_PARAMETER;    
-    else if(!liteSCardListReaders)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else if(mszReaders && SCARD_AUTOALLOCATE == *pcchReaders)
-    {        
+    {
         /* get list from pcsc-lite */
         LPSTR* pmszReaders = (LPSTR*) mszReaders;
         LPSTR szList = NULL;
         DWORD_LITE dwListLength = 0;
-        
-        lRet = liteSCardListReaders(hContext,mszGroups,NULL,&dwListLength);
+        struct SCardListReaders_params params = { hContext, mszGroups, NULL, &dwListLength };
+        lRet = WINSCARD_CALL( SCardListReaders, &params );
+
         if(SCARD_S_SUCCESS != lRet && lRet != SCARD_E_INSUFFICIENT_BUFFER)
             goto end_label;
         
-        szList = (LPSTR) SCardAllocate((DWORD) dwListLength);
+        szList = (LPSTR)SCardAllocate((DWORD) dwListLength);
         if(!szList)
         {
             lRet = SCARD_E_NO_MEMORY;
             goto end_label;
         }
         
-        lRet = liteSCardListReaders(hContext,mszGroups,szList,&dwListLength);
+        params.hContext = hContext;
+        params.mszReaders = szList;
+        params.pcchReaders = &dwListLength;
+
+        lRet = WINSCARD_CALL( SCardListReaders, &params );
+
         if(SCARD_S_SUCCESS != lRet)
             SCardFree(szList);
         else
@@ -1188,18 +876,20 @@ LONG WINAPI SCardListReadersA(
     }
     else
 	{
+        struct SCardListReaders_params params = { hContext, mszGroups, mszReaders, NULL };
 		if (pcchReaders)
 		{
 			DWORD_LITE dwListLength = *pcchReaders;
-			lRet = liteSCardListReaders(hContext,mszGroups,mszReaders,&dwListLength);
+            params.pcchReaders = &dwListLength;
+			lRet = WINSCARD_CALL( SCardListReaders, &params );
 			*pcchReaders = dwListLength;
 		}
 		else
-			lRet = liteSCardListReaders(hContext,mszGroups,mszReaders,NULL);
-		
+			lRet = WINSCARD_CALL( SCardListReaders, &params );        
 	}
     
-end_label:    
+end_label:
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
@@ -1210,11 +900,12 @@ LONG WINAPI SCardListReadersW(
         LPDWORD pcchReaders)
 {
     LONG lRet;
-    TRACE(" 0x%08X %s %s %p\n",(unsigned int) hContext,debugstr_w(mszGroups),debugstr_w(mszReaders),pcchReaders);
+    TRACE("0x%p %s %s %p\n",(void*) hContext,debugstr_w(mszGroups),debugstr_w(mszReaders),pcchReaders);
+
     if(!pcchReaders)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardListReaders)
-        lRet = SCARD_F_INTERNAL_ERROR;
+    // else if(!liteSCardListReaders)
+    //     lRet = SCARD_F_INTERNAL_ERROR;
     else
     {
         /* call the ANSI version */
@@ -1292,42 +983,39 @@ end_label:
 /*
  *  PCS/SC communication functions
  */
-LONG WINAPI SCardEstablishContext(DWORD dwScope,LPCVOID pvReserved1, LPCVOID pvReserved2, LPSCARDCONTEXT phContext)
+LONG WINAPI SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1, LPCVOID pvReserved2, LPSCARDCONTEXT phContext)
 {
     LONG lRet;
-    TRACE(" 0x%08X %p %p %p\n",dwScope,pvReserved1,pvReserved2,phContext);
+    struct SCardEstablishContext_params params = { dwScope, pvReserved1, pvReserved2, phContext};
+    TRACE("%#lx %p %p %p\n",dwScope,pvReserved1,pvReserved2,phContext);
+
     if(!phContext)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardEstablishContext)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
-        lRet = liteSCardEstablishContext(dwScope,pvReserved1,pvReserved2,phContext);
-    
-    TRACE(" returned 0x%08X\n",lRet);
+        lRet = WINSCARD_CALL( SCardEstablishContext, &params );
+
+    TRACE("returned %#lx  hContext %p\n", lRet, (void*)*params.phContext);
     return TranslateToWin32(lRet);
 }
-
 
 LONG WINAPI SCardReleaseContext(SCARDCONTEXT hContext)
 {
     LONG lRet;
-    TRACE(" 0x%08X\n", (unsigned int) hContext);
-    if(!liteSCardReleaseContext)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else 
-        lRet = liteSCardReleaseContext(hContext);
-    
-    TRACE(" returned 0x%08X\n",lRet);
+    struct SCardReleaseContext_params params = { hContext };
+    TRACE("0x%p\n", (void*)hContext);
+
+    lRet = WINSCARD_CALL( SCardReleaseContext, &params );
+
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
 LONG WINAPI SCardIsValidContext(SCARDCONTEXT hContext)
 {
-    TRACE(" 0x%08X\n", (unsigned int) hContext);
-    if(!liteSCardIsValidContext)
-        return SCARD_F_INTERNAL_ERROR;
-    else
-        return TranslateToWin32(liteSCardIsValidContext(hContext));
+    struct SCardIsValidContext_params params = { hContext };
+    TRACE("0x%p\n", (void*)hContext);
+
+    return TranslateToWin32(WINSCARD_CALL( SCardIsValidContext, &params ));
 }
 
 LONG WINAPI SCardConnectA(SCARDCONTEXT hContext,
@@ -1338,11 +1026,10 @@ LONG WINAPI SCardConnectA(SCARDCONTEXT hContext,
                         LPDWORD pdwActiveProtocol)
 {
     LONG lRet;
-    TRACE(" 0x%08X %s 0x%08X 0x%08X %p %p\n",(unsigned int) hContext,debugstr_a(szReader),dwShareMode,dwPreferredProtocols,phCard,pdwActiveProtocol);
+    struct SCardConnect_params params = { hContext, szReader, dwShareMode, dwPreferredProtocols, phCard, NULL};
+    TRACE(" 0x%08X %s %#lx %#lx %p %p\n",(unsigned int) hContext,debugstr_a(szReader),dwShareMode,dwPreferredProtocols,phCard,pdwActiveProtocol);
     if(!szReader || !phCard || !pdwActiveProtocol)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardConnect)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
     {
         /* the value of SCARD_PROTOCOL_RAW is different between MS implementation and
@@ -1352,16 +1039,18 @@ LONG WINAPI SCardConnectA(SCARDCONTEXT hContext,
         {
             dwPreferredProtocols ^= SCARD_PROTOCOL_RAW;
             dwPreferredProtocols |= PCSCLITE_SCARD_PROTOCOL_RAW;
+            params.dwPreferredProtocols = dwPreferredProtocols;
         }
-        
+
 		if (pdwActiveProtocol)
 		{
 			DWORD_LITE dwProtocol = *pdwActiveProtocol;
-			lRet = liteSCardConnect(hContext,szReader,dwShareMode,dwPreferredProtocols,phCard,&dwProtocol);
+            params.pdwActiveProtocol = &dwProtocol;
+            lRet = WINSCARD_CALL( SCardConnect, &params );
 			*pdwActiveProtocol = (DWORD) dwProtocol;
 		}
 		else
-			lRet = liteSCardConnect(hContext,szReader,dwShareMode,dwPreferredProtocols,phCard,NULL);
+			lRet = WINSCARD_CALL( SCardConnect, &params );
         if(SCARD_S_SUCCESS == lRet)
         {
             /* if PCSCLITE_SCARD_PROTOCOL_RAW is set, put back the MS corresponding value */
@@ -1374,7 +1063,7 @@ LONG WINAPI SCardConnectA(SCARDCONTEXT hContext,
         }
     }
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
                         
@@ -1386,11 +1075,10 @@ LONG WINAPI SCardConnectW(SCARDCONTEXT hContext,
                         LPDWORD pdwActiveProtocol)
 {
     LONG lRet;
-    TRACE(" 0x%08X %s 0x%08X 0x%08X %p %p\n",(unsigned int) hContext,debugstr_w(szReader),dwShareMode,dwPreferredProtocols,phCard,pdwActiveProtocol);    
+    struct SCardConnect_params params = { hContext, NULL, dwShareMode, dwPreferredProtocols, phCard, NULL};
+    TRACE(" 0x%08X %s %#lx %#lx %p %p\n",(unsigned int) hContext,debugstr_w(szReader),dwShareMode,dwPreferredProtocols,phCard,pdwActiveProtocol);    
     if(!szReader || !phCard || !pdwActiveProtocol)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardConnect)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
     {
         LPSTR szReaderA = NULL;
@@ -1423,16 +1111,19 @@ LONG WINAPI SCardConnectW(SCARDCONTEXT hContext,
         {
             dwPreferredProtocols ^= SCARD_PROTOCOL_RAW;
             dwPreferredProtocols |= PCSCLITE_SCARD_PROTOCOL_RAW;
+            params.dwPreferredProtocols = dwPreferredProtocols;
         }
-        
+
+        params.szReader = szReaderA;
 		if (pdwActiveProtocol)
 		{
 			DWORD_LITE dwProtocol = *pdwActiveProtocol;
-			lRet = liteSCardConnect(hContext,szReaderA,dwShareMode,dwPreferredProtocols,phCard,&dwProtocol);
+            params.pdwActiveProtocol = &dwProtocol;
+            lRet = WINSCARD_CALL( SCardConnect, &params );
 			*pdwActiveProtocol = (DWORD) dwProtocol;
 		}
 		else
-			lRet = liteSCardConnect(hContext,szReaderA,dwShareMode,dwPreferredProtocols,phCard,NULL);
+			lRet = WINSCARD_CALL( SCardConnect, &params );
         if(SCARD_S_SUCCESS == lRet)
         {
             /* if PCSCLITE_SCARD_PROTOCOL_RAW is set, put back the MS corresponding value */
@@ -1447,7 +1138,7 @@ LONG WINAPI SCardConnectW(SCARDCONTEXT hContext,
         SCardFree(szReaderA);
     }        
 end_label:    
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);    
 }
 
@@ -1458,11 +1149,10 @@ LONG WINAPI SCardReconnect(SCARDHANDLE hCard,
                         LPDWORD pdwActiveProtocol)
 {
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X 0x%08X 0x%08X %p\n",(unsigned int) hCard,dwShareMode,dwPreferredProtocols,dwInitialization,pdwActiveProtocol);
+    struct SCardReconnect_params params = { hCard, dwShareMode, dwPreferredProtocols, dwInitialization, NULL};
+    TRACE(" 0x%08X %#lx %#lx %#lx %p\n",(unsigned int) hCard,dwShareMode,dwPreferredProtocols,dwInitialization,pdwActiveProtocol);
     if(!pdwActiveProtocol)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardReconnect)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
     {
         /* the value of SCARD_PROTOCOL_RAW is different between MS implementation and
@@ -1472,15 +1162,19 @@ LONG WINAPI SCardReconnect(SCARDHANDLE hCard,
         {
             dwPreferredProtocols ^= SCARD_PROTOCOL_RAW;
             dwPreferredProtocols |= PCSCLITE_SCARD_PROTOCOL_RAW;
+            params.dwPreferredProtocols = dwPreferredProtocols;
         }
+
 		if (pdwActiveProtocol)
 		{
 			DWORD_LITE dwProtocol = *pdwActiveProtocol;
-			lRet = liteSCardReconnect(hCard,dwShareMode,dwPreferredProtocols,dwInitialization,&dwProtocol);
+            params.pdwActiveProtocol = &dwProtocol;
+            lRet = WINSCARD_CALL( SCardReconnect, &params );
 			*pdwActiveProtocol = (DWORD) dwProtocol;
 		}
 		else
-			lRet = liteSCardReconnect(hCard,dwShareMode,dwPreferredProtocols,dwInitialization,NULL);
+			lRet = WINSCARD_CALL( SCardReconnect, &params );
+
         if(SCARD_S_SUCCESS == lRet)
         {
             /* if PCSCLITE_SCARD_PROTOCOL_RAW is set, put back the MS corresponding value */
@@ -1492,46 +1186,43 @@ LONG WINAPI SCardReconnect(SCARDHANDLE hCard,
         }        
     }
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
 LONG WINAPI SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 {
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X\n",(unsigned int) hCard,dwDisposition);
-    if(!liteSCardDisconnect)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else
-        lRet = liteSCardDisconnect(hCard,dwDisposition);
-    
-    TRACE(" returned 0x%08X\n",lRet);
+    struct SCardDisconnect_params params = { hCard, dwDisposition};
+    TRACE(" 0x%08X %#lx\n",(unsigned int) hCard,dwDisposition);
+
+    lRet = WINSCARD_CALL( SCardDisconnect, &params );
+
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
 LONG WINAPI SCardBeginTransaction(SCARDHANDLE hCard)
 {
     LONG lRet;
+    struct SCardBeginTransaction_params params = { hCard };
     TRACE(" 0x%08X\n",(unsigned int) hCard);
-    if(!liteSCardBeginTransaction)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else
-        lRet = liteSCardBeginTransaction(hCard);
+
+    lRet = WINSCARD_CALL( SCardBeginTransaction, &params );
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
 LONG WINAPI SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 {    
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X\n",(unsigned int) hCard,dwDisposition);
-    if(!liteSCardEndTransaction)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else
-        lRet = liteSCardEndTransaction(hCard,dwDisposition);
+    struct SCardEndTransaction_params params = { hCard, dwDisposition };
+    TRACE(" 0x%08X %#lx\n",(unsigned int) hCard,dwDisposition);
     
-    TRACE(" returned 0x%08X\n",lRet);
+    lRet = WINSCARD_CALL( SCardEndTransaction, &params );
+    
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
@@ -1544,7 +1235,7 @@ LONG WINAPI SCardState(
 {
     LONG lRet ;
     LPSTR szName = NULL;
-    DWORD cchReaderLen = SCARD_AUTOALLOCATE;;
+    DWORD cchReaderLen = SCARD_AUTOALLOCATE;
     TRACE(" 0x%08X %p %p %p %p\n",(unsigned int) hCard,pdwState,pdwProtocol,pbAtr,pcbAtrLen);
     lRet = SCardStatusA(hCard,(LPSTR) &szName,&cchReaderLen,pdwState,pdwProtocol,pbAtr,pcbAtrLen);
     
@@ -1552,7 +1243,7 @@ LONG WINAPI SCardState(
     if(szName)
         SCardFree((void*) szName);
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);    
 }
 
@@ -1566,11 +1257,10 @@ LONG WINAPI SCardStatusA(
         LPDWORD pcbAtrLen)
 {
     LONG lRet;
+    struct SCardStatus_params params;
     TRACE(" 0x%08X %p %p %p %p %p %p\n",(unsigned int) hCard,mszReaderNames,pcchReaderLen,pdwState,pdwProtocol,pbAtr,pcbAtrLen);
     if(!pcchReaderLen || !pdwState || !pdwProtocol || !pcbAtrLen)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardStatus)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
     {
 		DWORD_LITE dwNameLen = 0,dwAtrLen=MAX_ATR_SIZE, dwState, dwProtocol = 0;
@@ -1593,7 +1283,15 @@ LONG WINAPI SCardStatusA(
             BOOL bHasAutoAllocated = FALSE;            
             LPSTR szNames = NULL;
 			
-            lRet = liteSCardStatus(hCard,NULL,&dwNameLen,pdwStateLite,pdwProtocolLite,atr,&dwAtrLen);
+            params.hCard = hCard;
+            params.mszReaderName = NULL;
+            params.pcchReaderLen = &dwNameLen;
+            params.pdwState = pdwStateLite;
+            params.pdwProtocol = pdwProtocolLite;
+            params.pbAtr = atr;
+            params.pcbAtrLen = &dwAtrLen;
+
+            lRet = WINSCARD_CALL( SCardStatus, &params );
 			if (pdwState)
 			{
 				*pdwState = (DWORD) dwState;
@@ -1647,7 +1345,15 @@ LONG WINAPI SCardStatusA(
             else
                 szNames = mszReaderNames;
             
-            lRet = liteSCardStatus(hCard,szNames,&dwNameLen,pdwStateLite,pdwProtocolLite,atr,&dwAtrLen);
+            params.hCard = hCard;
+            params.mszReaderName = szNames;
+            params.pcchReaderLen = &dwNameLen;
+            params.pdwState = pdwStateLite;
+            params.pdwProtocol = pdwProtocolLite;
+            params.pbAtr = atr;
+            params.pcbAtrLen = &dwAtrLen;
+
+            lRet = WINSCARD_CALL( SCardStatus, &params );
             if(lRet != SCARD_S_SUCCESS)
             {
                 if(bHasAutoAllocated)
@@ -1704,7 +1410,16 @@ LONG WINAPI SCardStatusA(
 			}
 			else
 				pdwAtrLenLite = NULL;
-            lRet = liteSCardStatus(hCard,mszReaderNames,pdwNameLenLite,pdwStateLite,pdwProtocolLite,pbAtr,pdwAtrLenLite);
+
+            params.hCard = hCard;
+            params.mszReaderName = mszReaderNames;
+            params.pcchReaderLen = pdwNameLenLite;
+            params.pdwState = pdwStateLite;
+            params.pdwProtocol = pdwProtocolLite;
+            params.pbAtr = pbAtr;
+            params.pcbAtrLen = pdwAtrLenLite;
+
+            lRet = WINSCARD_CALL( SCardStatus, &params );
 			if (pdwState)
 			{
 				*pdwState = (DWORD) dwState;
@@ -1725,7 +1440,7 @@ LONG WINAPI SCardStatusA(
     }
     
 end_label:    
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
         
@@ -1742,8 +1457,6 @@ LONG WINAPI SCardStatusW(
     TRACE(" 0x%08X %p %p %p %p %p %p\n",(unsigned int) hCard,mszReaderNames,pcchReaderLen,pdwState,pdwProtocol,pbAtr,pcbAtrLen);
     if(!pcchReaderLen || !pdwState || !pdwProtocol || !pcbAtrLen)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardStatus)
-        lRet = SCARD_F_INTERNAL_ERROR;
     else
     {    
         /* call the ANSI version with SCARD_AUTOALLOCATE */
@@ -1789,7 +1502,7 @@ LONG WINAPI SCardStatusW(
         }
     }
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
@@ -1800,17 +1513,13 @@ LONG WINAPI SCardGetStatusChangeA(
         DWORD cReaders)
 {
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X %p 0x%08X\n",(unsigned int) hContext, dwTimeout,rgReaderStates,cReaders);
-    if(!liteSCardGetStatusChange)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else if(!rgReaderStates && cReaders)
+    struct SCardGetStatusChange_params params; 
+    TRACE(" 0x%08X %#lx %p %#lx\n",(unsigned int) hContext, dwTimeout,rgReaderStates,cReaders);
+    if(!rgReaderStates && cReaders)
         lRet =  SCARD_E_INVALID_PARAMETER;
     else if(!cReaders)
     {
-        if(liteSCardIsValidContext)
-            lRet =  liteSCardIsValidContext(hContext);
-        else
-            lRet = SCARD_S_SUCCESS;
+        lRet =  SCardIsValidContext(hContext); 
     }
     else
     {
@@ -1833,7 +1542,11 @@ LONG WINAPI SCardGetStatusChangeA(
              * Return SCARD_S_SUCCESS if a change is detected and
              * SCARD_E_TIMEOUT otherwide
              */
-            lRet = liteSCardGetStatusChange(hContext,0,pStates,cReaders);
+            params.hContext = hContext;
+            params.dwTimeout = 0;
+            params.rgReaderStates = pStates;
+            params.cReaders = cReaders;
+            lRet = WINSCARD_CALL( SCardGetStatusChange, &params );
             if(lRet == SCARD_S_SUCCESS)
             {
                 BOOL bStateChanges = FALSE;
@@ -1867,7 +1580,12 @@ LONG WINAPI SCardGetStatusChangeA(
 				memcpy(pStates[i].rgbAtr,rgReaderStates[i].rgbAtr,pStates[i].cbAtr);
 			}
 			
-            lRet = liteSCardGetStatusChange(hContext,dwTimeout,pStates,cReaders);
+            params.hContext = hContext;
+            params.dwTimeout = dwTimeout;
+            params.rgReaderStates = pStates;
+            params.cReaders = cReaders;
+            lRet = WINSCARD_CALL( SCardGetStatusChange, &params );
+
 			for(i=0;i<cReaders;i++)
 			{
 				rgReaderStates[i].dwCurrentState = pStates[i].dwCurrentState;
@@ -1880,7 +1598,7 @@ LONG WINAPI SCardGetStatusChangeA(
 		SCardFree(pStates);
     }
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);    
 }
         
@@ -1891,17 +1609,12 @@ LONG WINAPI SCardGetStatusChangeW(
         DWORD cReaders)
 {
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X %p 0x%08X\n",(unsigned int) hContext, dwTimeout,rgReaderStates,cReaders);    
+    TRACE(" 0x%08X %#lx %p %#lx\n",(unsigned int) hContext, dwTimeout,rgReaderStates,cReaders);    
     if(!rgReaderStates && cReaders)
         lRet = SCARD_E_INVALID_PARAMETER;
-    else if(!liteSCardGetStatusChange)
-        lRet =  SCARD_F_INTERNAL_ERROR;
     else if(!cReaders)
     {
-        if(liteSCardIsValidContext)
-            lRet = liteSCardIsValidContext(hContext);
-        else
-            lRet = SCARD_S_SUCCESS;
+        lRet =  SCardIsValidContext(hContext);     
     }    
     else
     {
@@ -1947,7 +1660,7 @@ LONG WINAPI SCardGetStatusChangeW(
         SCardFree(rgReaderStatesAnsi);    
     }
     
-    TRACE(" returned 0x%08X\n",lRet);
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
@@ -1960,23 +1673,18 @@ LONG WINAPI SCardControl(
             DWORD cbRecvLength, 
             LPDWORD lpBytesReturned)
 {
-    if(!liteSCardControl)
-        return SCARD_F_INTERNAL_ERROR;
-    else
-	{
+        struct SCardControl_params params = { hCard, dwControlCode, pbSendBuffer, cbSendLength, pbRecvBuffer, cbRecvLength, NULL };
 		DWORD_LITE dwBytesReturned = 0;
-		LPDWORD_LITE pdwBytesReturned = NULL;
 		LONG lRet;
 		if (lpBytesReturned)
 		{
 			dwBytesReturned = *lpBytesReturned;
-			pdwBytesReturned = &dwBytesReturned;
-		}
-        lRet = liteSCardControl(hCard,dwControlCode,pbSendBuffer,cbSendLength,pbRecvBuffer,cbRecvLength,pdwBytesReturned);    
+            params.lpBytesReturned = &dwBytesReturned;
+		}  
+        lRet = WINSCARD_CALL( SCardControl, &params );
 		if (lpBytesReturned)
 			*lpBytesReturned = dwBytesReturned;
 		return TranslateToWin32(lRet);
-	}
 }
 
 LONG WINAPI SCardTransmit(
@@ -1989,48 +1697,53 @@ LONG WINAPI SCardTransmit(
         LPDWORD pcbRecvLength)
 {
     LONG lRet;
-    if(!liteSCardTransmit)
-        lRet = SCARD_F_INTERNAL_ERROR;
+    struct SCardTransmit_params params;
+    DWORD_LITE dwRecvLength = 0;
+    LPDWORD_LITE pdwRecvLengthLite = NULL;
+    SCARD_IO_REQUEST_LITE ioSendPci, ioRecvPci;
+    ioSendPci.cbPciLength = sizeof(ioSendPci);
+    ioRecvPci.cbPciLength = sizeof(ioRecvPci);
+    
+    if (pcbRecvLength)
+    {
+        dwRecvLength = *pcbRecvLength;
+        pdwRecvLengthLite = &dwRecvLength;
+    }
+    
+    if (pioRecvPci) {
+        ioRecvPci.dwProtocol = ms_proto2lite_proto(pioRecvPci->dwProtocol);
+    }
+    
+    if(pioSendPci)
+    {
+        ioSendPci.dwProtocol = ms_proto2lite_proto(pioSendPci->dwProtocol);
+    }
     else
     {
-		DWORD_LITE dwRecvLength = 0;
-		LPDWORD_LITE pdwRecvLengthLite = NULL;
-		SCARD_IO_REQUEST_LITE ioSendPci, ioRecvPci;
-		ioSendPci.cbPciLength = sizeof(ioSendPci);
-		ioRecvPci.cbPciLength = sizeof(ioRecvPci);
-		
-		if (pcbRecvLength)
-		{
-			dwRecvLength = *pcbRecvLength;
-			pdwRecvLengthLite = &dwRecvLength;
-		}
-		
-		if (pioRecvPci) {
-			ioRecvPci.dwProtocol = ms_proto2lite_proto(pioRecvPci->dwProtocol);
-		}
-		
-        if(pioSendPci)
-		{
-			ioSendPci.dwProtocol = ms_proto2lite_proto(pioSendPci->dwProtocol);
-		}
-		else
+        /* In MS PC/SC, pioSendPci can be NULL. But not in pcsc-lite */
+        /* Get the protocol and set the correct value for pioSendPci*/
+        DWORD protocol,dwState;
+        DWORD dwAtrLen,dwNameLen;
+        lRet = SCardStatusA(hCard,NULL,&dwNameLen,&dwState,&protocol,NULL,&dwAtrLen);
+        if(lRet == SCARD_S_SUCCESS)
         {
-            /* In MS PC/SC, pioSendPci can be NULL. But not in pcsc-lite */
-            /* Get the protocol and set the correct value for pioSendPci*/
-            DWORD protocol,dwState;
-            DWORD dwAtrLen,dwNameLen;
-            lRet = SCardStatusA(hCard,NULL,&dwNameLen,&dwState,&protocol,NULL,&dwAtrLen);
-            if(lRet == SCARD_S_SUCCESS)
-            {
-            	ioSendPci.dwProtocol = ms_proto2lite_proto(protocol);
-            }
-			else
-				goto transmit_end;
+            ioSendPci.dwProtocol = ms_proto2lite_proto(protocol);
         }
-        lRet = liteSCardTransmit(hCard,&ioSendPci,pbSendBuffer,cbSendLength,pioRecvPci? &ioRecvPci : NULL,pbRecvBuffer,pdwRecvLengthLite);
-		if (pcbRecvLength)
-			*pcbRecvLength = dwRecvLength;
+        else
+            goto transmit_end;
     }
+
+    params.hCard = hCard;
+    params.pioSendPci = &ioSendPci;
+    params.pbSendBuffer = pbSendBuffer;
+    params.cbSendLength = cbSendLength;
+    params.pioRecvPci = pioRecvPci? &ioRecvPci : NULL;
+    params.pbRecvBuffer = pbRecvBuffer;
+    params.pcbRecvLength = pdwRecvLengthLite;
+    lRet = WINSCARD_CALL( SCardTransmit, &params );
+
+    if (pcbRecvLength)
+        *pcbRecvLength = dwRecvLength;
     
 transmit_end:
     return TranslateToWin32(lRet);
@@ -2039,13 +1752,11 @@ transmit_end:
 LONG WINAPI SCardCancel(SCARDCONTEXT hContext)
 {
     LONG lRet;
+    struct SCardCancel_params params = { hContext };
     TRACE(" 0x%08X \n",(unsigned int) hContext);
-    if(!liteSCardCancel)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else 
-        lRet = liteSCardCancel(hContext);
-    
-    TRACE(" returned 0x%08X\n",lRet);
+    lRet = WINSCARD_CALL( SCardCancel, &params );
+
+    TRACE(" returned %#lx\n",lRet);
     return TranslateToWin32(lRet);
 }
 
@@ -2056,16 +1767,15 @@ LONG WINAPI SCardGetAttrib(
             LPDWORD pcbAttrLen)
 {
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X %p %p \n",(unsigned int) hCard, dwAttrId,pbAttr,pcbAttrLen);
-    if(!liteSCardGetAttrib)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else if(!pcbAttrLen)
+    TRACE(" 0x%08X %#lx %p %p \n",(unsigned int) hCard, dwAttrId,pbAttr,pcbAttrLen);
+    if(!pcbAttrLen)
         lRet = SCARD_E_INVALID_PARAMETER;
     else
     {
         LPBYTE ptr = NULL;
         DWORD_LITE dwLength = 0;
-        lRet = liteSCardGetAttrib(hCard,dwAttrId,NULL,&dwLength);
+        struct SCardGetAttrib_params params = {hCard, dwAttrId, NULL, &dwLength}; 
+        lRet = WINSCARD_CALL( SCardGetAttrib, &params );
         if(lRet == SCARD_S_SUCCESS || lRet == SCARD_E_INSUFFICIENT_BUFFER)
         {
             if(!pbAttr)
@@ -2082,7 +1792,13 @@ LONG WINAPI SCardGetAttrib(
                     ptr = (LPBYTE) SCardAllocate((DWORD) dwLength);
                 else
                     ptr = pbAttr;
-                lRet = liteSCardGetAttrib(hCard,dwAttrId,ptr,&dwLength);
+
+                params.hCard = hCard;
+                params.dwAttrId = dwAttrId;
+                params.pbAttr = ptr;
+                params.pcbAttrLen = &dwLength;
+                lRet = WINSCARD_CALL( SCardGetAttrib, &params );
+
                 if(lRet == SCARD_S_SUCCESS)
                 {
                     *pcbAttrLen = (DWORD) dwLength;
@@ -2184,7 +1900,7 @@ LONG WINAPI SCardGetAttrib(
             }
         }
     }
-    TRACE(" returned 0x%08X \n",lRet);
+    TRACE(" returned %#lx \n",lRet);
     return TranslateToWin32(lRet);
 }
 
@@ -2195,12 +1911,9 @@ LONG WINAPI SCardSetAttrib(
             DWORD cbAttrLen)
 {
     LONG lRet;
-    TRACE(" 0x%08X 0x%08X %p 0x%08X \n",(unsigned int) hCard,dwAttrId,pbAttr,cbAttrLen);
-    if(!liteSCardSetAttrib)
-        lRet = SCARD_F_INTERNAL_ERROR;
-    else
-        lRet = liteSCardSetAttrib(hCard,dwAttrId,pbAttr,cbAttrLen);
-    
-    TRACE(" returned 0x%08X \n",lRet);    
+    struct SCardSetAttrib_params params = {hCard, dwAttrId, pbAttr, cbAttrLen}; 
+    TRACE(" 0x%08X %#lx %p %#lx \n",(unsigned int) hCard,dwAttrId,pbAttr,cbAttrLen);
+    lRet = WINSCARD_CALL( SCardGetAttrib, &params );
+    TRACE(" returned %#lx \n",lRet);    
     return TranslateToWin32(lRet);
 }

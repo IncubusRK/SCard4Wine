@@ -1,7 +1,7 @@
 @ stub ClassInstall32
 @ stdcall SCardAccessNewReaderEvent()
-@ stdcall SCardReleaseAllEvents()
-@ stdcall SCardReleaseNewReaderEvent()
+@ stub SCardReleaseAllEvents()
+@ stub SCardReleaseNewReaderEvent()
 @ stdcall SCardAccessStartedEvent()
 @ stdcall SCardAddReaderToGroupA(long str str)
 @ stdcall SCardAddReaderToGroupW(long wstr wstr)
@@ -48,7 +48,7 @@
 @ stdcall SCardLocateCardsW(long wstr ptr long)
 @ stdcall SCardReconnect(long long long long ptr)
 @ stdcall SCardReleaseContext(long)
-@ stdcall SCardReleaseStartedEvent()
+@ stub SCardReleaseStartedEvent()
 @ stdcall SCardRemoveReaderFromGroupA(long str str)
 @ stdcall SCardRemoveReaderFromGroupW(long wstr wstr)
 @ stdcall SCardSetAttrib(long long ptr long)

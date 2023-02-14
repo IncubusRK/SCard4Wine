@@ -1,5 +1,20 @@
 SCard4Wine
 ==========
 
-A mirror for my SCard4Wine project on SourceForge that brings full Smart Card support to the WINE emulator.
-Go to http://sourceforge.net/projects/scard4wine/ for the base sources and precompiled binaries.
+Fork of [SCard4Wine project on SourceForge](http://sourceforge.net/projects/scard4wine/) that brings full Smart Card support to the WINE emulator.
+  
+This project contains only source files.
+You will need to download complete Wine sources and copy winscard files into Wine sources and build the whole Wine.
+Here are steps:
+
+1. Download and extract the Wine source tarball. Or clone from git. For example:
+	git clone -b 8.1 --depth 1 --progress https://github.com/wine-mirror/wine ./wine
+	
+2. Copy winscard source files.
+
+	cp -f scard4wine/src/*.{c,h,spec,in} wine/dlls/winscard/
+	cp -f scard4wine/src/*.h wine/include/
+
+3. Build the whole Wine
+
+	./configure && make -j $(nproc) && make install -j $(nproc)
