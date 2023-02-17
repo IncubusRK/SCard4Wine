@@ -15,7 +15,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
-
+#include <stdarg.h>
 #include "windef.h"
 #include "winbase.h"
 #include "ntuser.h"
@@ -62,14 +62,19 @@ HANDLE g_startedEvent = NULL;
 
 BOOL WINAPI DllMain (HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
+    BOOL is_wow64=FALSE;
     TRACE("%p, %#lx, %p\n", hinstDLL, fdwReason, lpvReserved);
-    
+    IsWow64Process(GetCurrentProcess(), &is_wow64);
+    if (is_wow64)
+        WARN("Running in wow64 process. libpcsclite1:i386 must be installed\n");
+
     switch (fdwReason) {
         case DLL_PROCESS_ATTACH:
         {
             DisableThreadLibraryCalls(hinstDLL);
             __wine_init_unix_call();
-            WINSCARD_CALL( process_attach, NULL );
+            if(!WINSCARD_CALL( process_attach, NULL )) 
+                WARN("Winscard loading failed.");
             g_startedEvent = CreateEventA(NULL,TRUE,TRUE,NULL);
             break;
         }
@@ -1026,7 +1031,7 @@ LONG WINAPI SCardConnectA(SCARDCONTEXT hContext,
                         LPDWORD pdwActiveProtocol)
 {
     LONG lRet;
-    struct SCardConnect_params params = { hContext, szReader, dwShareMode, dwPreferredProtocols, phCard, NULL};
+    struct SCardConnect_params params = { hContext, szReader, dwShareMode, dwPreferredProtocols, phCard, NULL };
     TRACE(" 0x%08X %s %#lx %#lx %p %p\n",(unsigned int) hContext,debugstr_a(szReader),dwShareMode,dwPreferredProtocols,phCard,pdwActiveProtocol);
     if(!szReader || !phCard || !pdwActiveProtocol)
         lRet = SCARD_E_INVALID_PARAMETER;
@@ -1565,7 +1570,6 @@ LONG WINAPI SCardGetStatusChangeA(
                         rgReaderStates[i].dwEventState = dwState;
                 }
                 
-                
                 if(!bStateChanges)
                     lRet = SCARD_E_TIMEOUT;
             }
@@ -1579,7 +1583,7 @@ LONG WINAPI SCardGetStatusChangeA(
 				pStates[i].cbAtr = min (MAX_ATR_SIZE, rgReaderStates[i].cbAtr);
 				memcpy(pStates[i].rgbAtr,rgReaderStates[i].rgbAtr,pStates[i].cbAtr);
 			}
-			
+
             params.hContext = hContext;
             params.dwTimeout = dwTimeout;
             params.rgReaderStates = pStates;

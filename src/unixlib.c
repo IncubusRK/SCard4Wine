@@ -25,7 +25,6 @@
 
 #include "config.h"
 
-//#include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <sys/types.h>
@@ -34,7 +33,7 @@
 
 #define __user
 #include "unixlib.h"
-//#include <PCSC/winscard.h>
+
 	LONG SCardEstablishContext(DWORD_LITE dwScope,	/*@null@*/ LPCVOID pvReserved1, /*@null@*/ LPCVOID pvReserved2, /*@out@*/ LPSCARDCONTEXT phContext);
 	LONG SCardReleaseContext(SCARDCONTEXT hContext);
 	LONG SCardIsValidContext(SCARDCONTEXT hContext);
@@ -60,7 +59,6 @@
 	LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD_LITE dwAttrId, /*@out@*/ LPBYTE pbAttr, LPDWORD_LITE pcbAttrLen);
 	LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD_LITE dwAttrId, LPCBYTE pbAttr, DWORD_LITE cbAttrLen);
 
-//#include "winscard.h"
 
 #include "wine/debug.h"
 WINE_DEFAULT_DEBUG_CHANNEL(winscard);
@@ -280,14 +278,23 @@ static BOOL load_pcsclite(void)
             g_pcscliteHandle = dlopen("/lib/i386-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
 #endif	
         }
+         if(!g_pcscliteHandle)
+        {
+#ifdef __LP64__
+            g_pcscliteHandle = dlopen("/usr/lib/x86_64-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
+#else
+            g_pcscliteHandle = dlopen("/usr/lib/i386-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
+#endif	
+        }
 #endif
+      TRACE("g_pcscliteHandle: %p\n", g_pcscliteHandle);
         if(!g_pcscliteHandle)
         {
             /* error occured*/
 #ifdef __APPLE__
-         WARN_(winediag)( "loading PCSC framework failed, scard support will be disabled. Error: %s\n", debugstr_a(dlerror()) );
+         ERR_(winediag)( "loading PCSC framework failed, scard support will be disabled. Error: %s\n", debugstr_a(dlerror()) );
 #else
-         WARN_(winediag)( "failed to load libpcsclite.so, scard support will be disabled. Error: %s\n", debugstr_a(dlerror()) );
+         ERR_(winediag)( "failed to load libpcsclite.so, scard support will be disabled. Error: %s\n", debugstr_a(dlerror()) );
 #endif
          return FALSE;
         }

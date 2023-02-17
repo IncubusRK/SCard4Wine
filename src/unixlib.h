@@ -29,6 +29,32 @@
 #ifndef __unixlib_h__
 #define __unixlib_h__
 
+
+#ifndef LPCBYTE
+    typedef const BYTE *LPCBYTE;
+#endif
+
+#define MAX_PCSCLITE_READERNAME            52
+
+#ifdef WINE_UNIX_LIB
+    typedef ULONG_PTR SCARDCONTEXT, *PSCARDCONTEXT, *LPSCARDCONTEXT;
+    typedef ULONG_PTR SCARDHANDLE,  *PSCARDHANDLE,  *LPSCARDHANDLE;
+    typedef unsigned long  DWORD_LITE;
+    typedef unsigned long* LPDWORD_LITE;
+#else
+    #include "winscard.h"
+    #ifndef SCARD_READERSTATE
+        typedef SCARD_READERSTATEA SCARD_READERSTATE;
+    #endif
+    #ifdef __x86_64
+        typedef unsigned long long  DWORD_LITE;
+        typedef unsigned long long* LPDWORD_LITE;
+    #else
+        typedef unsigned long  DWORD_LITE;
+        typedef unsigned long* LPDWORD_LITE;
+    #endif    
+#endif
+
 #ifdef __APPLE__
 
 #define DWORD_LITE	DWORD
@@ -45,17 +71,17 @@
 
 #else
 
-typedef unsigned long  DWORD_LITE;
-typedef unsigned long* LPDWORD_LITE;
+#undef MAX_ATR_SIZE
+#define MAX_ATR_SIZE			33	/**< Maximum ATR size */
 
 typedef struct
 {
         const char *szReader;
         void *pvUserData;
-        unsigned long dwCurrentState;
-        unsigned long dwEventState;
-        unsigned long cbAtr;
-        unsigned char rgbAtr[33];
+        DWORD_LITE dwCurrentState;
+        DWORD_LITE dwEventState;
+        DWORD_LITE cbAtr;
+        unsigned char rgbAtr[MAX_ATR_SIZE];
 }
 SCARD_READERSTATE_LITE;
 
@@ -63,31 +89,13 @@ typedef SCARD_READERSTATE_LITE *LPSCARD_READERSTATE_LITE;
 
 typedef struct
 {
-        unsigned long dwProtocol;       /**< Protocol identifier */
-        unsigned long cbPciLength;      /**< Protocol Control Inf Length */
+        DWORD_LITE dwProtocol;       /**< Protocol identifier */
+        DWORD_LITE cbPciLength;      /**< Protocol Control Inf Length */
 }
 SCARD_IO_REQUEST_LITE, *PSCARD_IO_REQUEST_LITE, *LPSCARD_IO_REQUEST_LITE;
 
 typedef const SCARD_IO_REQUEST_LITE *LPCSCARD_IO_REQUEST_LITE;
 
-#endif
-
-#ifndef LPCBYTE
-    typedef const BYTE *LPCBYTE;
-#endif
-
-#define MAX_PCSCLITE_READERNAME            52
-
-#ifdef WINE_UNIX_LIB
-
-    typedef ULONG_PTR SCARDCONTEXT, *PSCARDCONTEXT, *LPSCARDCONTEXT;
-    typedef ULONG_PTR SCARDHANDLE,  *PSCARDHANDLE,  *LPSCARDHANDLE;
-    
-#else
-    #include "winscard.h"
-    #ifndef SCARD_READERSTATE
-        typedef SCARD_READERSTATEA SCARD_READERSTATE;
-    #endif
 #endif
 
 enum unix_funcs
@@ -247,7 +255,7 @@ struct SCardSetAttrib_params
 {
     SCARDHANDLE hCard;
     DWORD_LITE dwAttrId;
-    LPBYTE pbAttr;
+    const LPBYTE pbAttr;
     DWORD_LITE cbAttrLen;
 };
 
