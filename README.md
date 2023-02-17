@@ -8,13 +8,15 @@ You will need to download complete Wine sources and copy winscard files into Win
 Here are steps:
 
 1. Download and extract the Wine source tarball. Or clone from git. For example:
+```
 	git clone -b 8.1 --depth 1 --progress https://github.com/wine-mirror/wine ./wine
-	
+```	
 2. Copy winscard source files.
-
+```
 	cp -f scard4wine/src/*.{c,h,spec,in} wine/dlls/winscard/
 	cp -f scard4wine/src/*.h wine/include/
-
+```
 3. Build the whole Wine
-
+```
 	./configure && make -j $(nproc) && make install -j $(nproc)
+```	
