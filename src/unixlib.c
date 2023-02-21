@@ -1,7 +1,7 @@
 /*
  * WinScard Unix library
  *
- * Copyright 2023 Romanov Konstantin
+ * Copyright 2023 Konstantin Romanov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -34,31 +34,24 @@
 #define __user
 #include "unixlib.h"
 
-	LONG SCardEstablishContext(DWORD_LITE dwScope,	/*@null@*/ LPCVOID pvReserved1, /*@null@*/ LPCVOID pvReserved2, /*@out@*/ LPSCARDCONTEXT phContext);
-	LONG SCardReleaseContext(SCARDCONTEXT hContext);
-	LONG SCardIsValidContext(SCARDCONTEXT hContext);
-	LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader, DWORD_LITE dwShareMode, DWORD_LITE dwPreferredProtocols, /*@out@*/ LPSCARDHANDLE phCard, /*@out@*/ LPDWORD_LITE pdwActiveProtocol);
-	LONG SCardReconnect(SCARDHANDLE hCard, DWORD_LITE dwShareMode, DWORD_LITE dwPreferredProtocols, DWORD_LITE dwInitialization, /*@out@*/ LPDWORD_LITE pdwActiveProtocol);
-	LONG SCardDisconnect(SCARDHANDLE hCard, DWORD_LITE dwDisposition);
-	LONG SCardBeginTransaction(SCARDHANDLE hCard);
-	LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD_LITE dwDisposition);
-	LONG SCardStatus(SCARDHANDLE hCard,
-		/*@null@*/ /*@out@*/ LPSTR mszReaderName,
-		/*@null@*/ /*@out@*/ LPDWORD_LITE pcchReaderLen,
-		/*@null@*/ /*@out@*/ LPDWORD_LITE pdwState,
-		/*@null@*/ /*@out@*/ LPDWORD_LITE pdwProtocol,
-		/*@null@*/ /*@out@*/ LPBYTE pbAtr,
-		/*@null@*/ /*@out@*/ LPDWORD_LITE pcbAtrLen);
-	LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD_LITE dwTimeout, SCARD_READERSTATE_LITE *rgReaderStates, DWORD_LITE cReaders);
-	LONG SCardControl(SCARDHANDLE hCard, DWORD_LITE dwControlCode, LPCVOID pbSendBuffer, DWORD_LITE cbSendLength, /*@out@*/ LPVOID pbRecvBuffer, DWORD_LITE cbRecvLength, LPDWORD_LITE lpBytesReturned);
-	LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST_LITE *pioSendPci, LPCBYTE pbSendBuffer, DWORD_LITE cbSendLength, /*@out@*/ SCARD_IO_REQUEST_LITE *pioRecvPci, /*@out@*/ LPBYTE pbRecvBuffer, LPDWORD_LITE pcbRecvLength);
-	LONG SCardListReaderGroups(SCARDCONTEXT hContext, /*@out@*/ LPSTR mszGroups, LPDWORD_LITE pcchGroups);
-	LONG SCardListReaders(SCARDCONTEXT hContext,	/*@null@*/ /*@out@*/ LPCSTR mszGroups,	/*@null@*/ /*@out@*/ LPSTR mszReaders,	/*@out@*/ LPDWORD_LITE pcchReaders);
-	LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem);
-	LONG SCardCancel(SCARDCONTEXT hContext);
-	LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD_LITE dwAttrId, /*@out@*/ LPBYTE pbAttr, LPDWORD_LITE pcbAttrLen);
-	LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD_LITE dwAttrId, LPCBYTE pbAttr, DWORD_LITE cbAttrLen);
-
+LONG SCardEstablishContext(DWORD_LITE dwScope, LPCVOID pvReserved1, LPCVOID pvReserved2, SCARDCONTEXT *phContext);
+LONG SCardReleaseContext(SCARDCONTEXT hContext);
+LONG SCardIsValidContext(SCARDCONTEXT hContext);
+LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader, DWORD_LITE dwShareMode, DWORD_LITE dwPreferredProtocols, SCARDHANDLE *phCard, DWORD_LITE *pdwActiveProtocol);
+LONG SCardReconnect(SCARDHANDLE hCard, DWORD_LITE dwShareMode, DWORD_LITE dwPreferredProtocols, DWORD_LITE dwInitialization, DWORD_LITE *pdwActiveProtocol);
+LONG SCardDisconnect(SCARDHANDLE hCard, DWORD_LITE dwDisposition);
+LONG SCardBeginTransaction(SCARDHANDLE hCard);
+LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD_LITE dwDisposition);
+LONG SCardStatus(SCARDHANDLE hCard, LPSTR mszReaderName, DWORD_LITE *pcchReaderLen, DWORD_LITE *pdwState, DWORD_LITE *pdwProtocol, LPBYTE pbAtr, DWORD_LITE *pcbAtrLen);
+LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD_LITE dwTimeout, SCARD_READERSTATE_LITE *rgReaderStates, DWORD_LITE cReaders);
+LONG SCardControl(SCARDHANDLE hCard, DWORD_LITE dwControlCode, LPCVOID pbSendBuffer, DWORD_LITE cbSendLength, LPVOID pbRecvBuffer, DWORD_LITE cbRecvLength, DWORD_LITE *lpBytesReturned);
+LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST_LITE *pioSendPci, LPCBYTE pbSendBuffer, DWORD_LITE cbSendLength, SCARD_IO_REQUEST_LITE *pioRecvPci, LPBYTE pbRecvBuffer, DWORD_LITE *pcbRecvLength);
+LONG SCardListReaderGroups(SCARDCONTEXT hContext, LPSTR mszGroups, DWORD_LITE *pcchGroups);
+LONG SCardListReaders(SCARDCONTEXT hContext, LPCSTR mszGroups, LPSTR mszReaders, DWORD_LITE *pcchReaders);
+LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem);
+LONG SCardCancel(SCARDCONTEXT hContext);
+LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD_LITE dwAttrId, LPBYTE pbAttr, DWORD_LITE *pcbAttrLen);
+LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD_LITE dwAttrId, LPCBYTE pbAttr, DWORD_LITE cbAttrLen);
 
 #include "wine/debug.h"
 WINE_DEFAULT_DEBUG_CHANNEL(winscard);
@@ -276,7 +269,7 @@ static BOOL load_pcsclite(void)
             g_pcscliteHandle = dlopen("/lib/x86_64-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
 #else
             g_pcscliteHandle = dlopen("/lib/i386-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
-#endif	
+#endif    
         }
          if(!g_pcscliteHandle)
         {
@@ -284,7 +277,7 @@ static BOOL load_pcsclite(void)
             g_pcscliteHandle = dlopen("/usr/lib/x86_64-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
 #else
             g_pcscliteHandle = dlopen("/usr/lib/i386-linux-gnu/libpcsclite.so.1",RTLD_LAZY | RTLD_GLOBAL);
-#endif	
+#endif    
         }
 #endif
       TRACE("g_pcscliteHandle: %p\n", g_pcscliteHandle);

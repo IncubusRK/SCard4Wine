@@ -1,7 +1,7 @@
 /*
  * WinSCard Unix library
  *
- * Copyright 2023 Romanov Konstantin
+ * Copyright (C) 2023 Konstantin Romanov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -147,7 +147,7 @@ struct SCardConnect_params
     DWORD_LITE dwShareMode;
     DWORD_LITE dwPreferredProtocols;
     LPSCARDHANDLE phCard;
-    LPDWORD_LITE pdwActiveProtocol;
+    DWORD_LITE *pdwActiveProtocol;
 };
 
 struct SCardReconnect_params
@@ -156,7 +156,7 @@ struct SCardReconnect_params
     DWORD_LITE dwShareMode;
     DWORD_LITE dwPreferredProtocols;
     DWORD_LITE dwInitialization;
-    LPDWORD_LITE pdwActiveProtocol;
+    DWORD_LITE *pdwActiveProtocol;
 };
 
 struct SCardDisconnect_params
@@ -180,11 +180,11 @@ struct SCardStatus_params
 {
     SCARDHANDLE hCard;
     LPSTR mszReaderName;
-    LPDWORD_LITE pcchReaderLen;
-    LPDWORD_LITE pdwState;
-    LPDWORD_LITE pdwProtocol;
+    DWORD_LITE *pcchReaderLen;
+    DWORD_LITE *pdwState;
+    DWORD_LITE *pdwProtocol;
     LPBYTE pbAtr;
-    LPDWORD_LITE pcbAtrLen;
+    DWORD_LITE *pcbAtrLen;
 };
 
 struct SCardGetStatusChange_params 
@@ -203,7 +203,7 @@ struct SCardControl_params
     DWORD_LITE cbSendLength;
     LPVOID pbRecvBuffer;
     DWORD_LITE cbRecvLength;
-    LPDWORD_LITE lpBytesReturned;
+    DWORD_LITE *lpBytesReturned;
 };
 
 struct SCardTransmit_params
@@ -214,14 +214,14 @@ struct SCardTransmit_params
     DWORD_LITE cbSendLength;
     SCARD_IO_REQUEST_LITE *pioRecvPci;
     LPBYTE pbRecvBuffer;
-    LPDWORD_LITE pcbRecvLength;
+    DWORD_LITE *pcbRecvLength;
 };
 
 struct SCardListReaderGroups_params
 {
     SCARDCONTEXT hContext;
     LPSTR mszGroups;
-    LPDWORD_LITE pcchGroups;
+    DWORD_LITE *pcchGroups;
 };
 
 struct SCardListReaders_params 
@@ -229,7 +229,7 @@ struct SCardListReaders_params
     SCARDCONTEXT hContext;
     LPCSTR mszGroups;
     LPSTR mszReaders;
-    LPDWORD_LITE pcchReaders;
+    DWORD_LITE *pcchReaders;
 };
 
 struct SCardFreeMemory_params 
@@ -248,7 +248,7 @@ struct SCardGetAttrib_params
     SCARDHANDLE hCard;
     DWORD_LITE dwAttrId;
     LPBYTE pbAttr;
-    LPDWORD_LITE pcbAttrLen;
+    DWORD_LITE *pcbAttrLen;
 };
 
 struct SCardSetAttrib_params 

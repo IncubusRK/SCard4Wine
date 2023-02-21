@@ -3,7 +3,6 @@ UNIXLIB   = winscard.so
 IMPORTLIB = winscard
 IMPORTS   = ntdll
 
-EXTRADLLFLAGS = -mcygwin -Wb,--syscall-table,1
 C_SRCS = \
 	winscard.c\
 	unixlib.c

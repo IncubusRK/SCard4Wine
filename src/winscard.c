@@ -1,5 +1,6 @@
 /*
- * Copyright 2007 Mounir IDRASSI  (mounir.idrassi@idrix.fr, for IDRIX)
+ * Copyright (C) 2007 Mounir IDRASSI  (mounir.idrassi@idrix.fr, for IDRIX)
+ * Copyright (C) 2023 Konstantin Romanov
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -36,23 +37,23 @@ SCARD_IO_REQUEST g_rgSCardRawPci = { SCARD_PROTOCOL_RAW, 8 };
 static DWORD_LITE
 ms_proto2lite_proto(DWORD dwProtocol)
 {
-	if (dwProtocol & SCARD_PROTOCOL_RAW)
-	{
-		dwProtocol ^= SCARD_PROTOCOL_RAW;
-		dwProtocol |= PCSCLITE_SCARD_PROTOCOL_RAW;
-	}
-	return (DWORD_LITE)dwProtocol;
+    if (dwProtocol & SCARD_PROTOCOL_RAW)
+    {
+        dwProtocol ^= SCARD_PROTOCOL_RAW;
+        dwProtocol |= PCSCLITE_SCARD_PROTOCOL_RAW;
+    }
+    return (DWORD_LITE)dwProtocol;
 }
 
 static DWORD
 lite_proto2ms_proto(DWORD_LITE dwProtocol)
 {
-	if (dwProtocol & PCSCLITE_SCARD_PROTOCOL_RAW)
-	{
-		dwProtocol ^= PCSCLITE_SCARD_PROTOCOL_RAW;
-		dwProtocol |= SCARD_PROTOCOL_RAW;
-	}
-	return (DWORD)dwProtocol;
+    if (dwProtocol & PCSCLITE_SCARD_PROTOCOL_RAW)
+    {
+        dwProtocol ^= PCSCLITE_SCARD_PROTOCOL_RAW;
+        dwProtocol |= SCARD_PROTOCOL_RAW;
+    }
+    return (DWORD)dwProtocol;
 }
 
 HANDLE g_startedEvent = NULL;
@@ -128,17 +129,17 @@ static LONG ConvertListToANSI(LPCWSTR szListW,LPSTR* pszListA,LPDWORD pdwLength)
         /* compute size of wide-char multi-string */
         while (*szListWPtr)
         {
-			wlen = lstrlenW (szListWPtr) + 1;
+            wlen = lstrlenW (szListWPtr) + 1;
 
-			totallen += wlen;
-			szListWPtr += wlen;
-		}
-		
-		totallen++;
-		
-		alen = WideCharToMultiByte(CP_ACP, 0, szListW, totallen, NULL, 0, NULL, NULL);
-		if (alen == 0)
-			return SCARD_F_INTERNAL_ERROR;
+            totallen += wlen;
+            szListWPtr += wlen;
+        }
+        
+        totallen++;
+        
+        alen = WideCharToMultiByte(CP_ACP, 0, szListW, totallen, NULL, 0, NULL, NULL);
+        if (alen == 0)
+            return SCARD_F_INTERNAL_ERROR;
         
         /* allocate memory */
         szStr = (LPSTR) SCardAllocate (alen);
@@ -146,12 +147,12 @@ static LONG ConvertListToANSI(LPCWSTR szListW,LPSTR* pszListA,LPDWORD pdwLength)
             return SCARD_E_NO_MEMORY;
         
         /* perform the conversion */
-		alen = WideCharToMultiByte(CP_ACP, 0, szListW, totallen, szStr, alen, NULL, NULL);
-		if (alen == 0)
-		{
-			SCardFree (szStr);
-			return SCARD_F_INTERNAL_ERROR;
-		}
+        alen = WideCharToMultiByte(CP_ACP, 0, szListW, totallen, szStr, alen, NULL, NULL);
+        if (alen == 0)
+        {
+            SCardFree (szStr);
+            return SCARD_F_INTERNAL_ERROR;
+        }
         
         *pszListA = szStr;
         *pdwLength = alen;
@@ -188,17 +189,17 @@ static LONG ConvertListToWideChar(LPCSTR szListA,LPWSTR* pszListW,LPDWORD pdwLen
         /* compute size of ANSI multi-string */
         while (*szListAPtr)
         {
-			alen = lstrlenA (szListAPtr) + 1;
+            alen = lstrlenA (szListAPtr) + 1;
 
-			totallen += alen;
-			szListAPtr += alen;
-		}
-		
-		totallen++;
-		
-		wlen = MultiByteToWideChar(CP_ACP, 0, szListA, totallen, NULL, 0);
-		if (wlen == 0)
-			return SCARD_F_INTERNAL_ERROR;
+            totallen += alen;
+            szListAPtr += alen;
+        }
+        
+        totallen++;
+        
+        wlen = MultiByteToWideChar(CP_ACP, 0, szListA, totallen, NULL, 0);
+        if (wlen == 0)
+            return SCARD_F_INTERNAL_ERROR;
         
         /* allocate memory */
         szStr = (LPWSTR) SCardAllocate (wlen * sizeof (WCHAR));
@@ -206,12 +207,12 @@ static LONG ConvertListToWideChar(LPCSTR szListA,LPWSTR* pszListW,LPDWORD pdwLen
             return SCARD_E_NO_MEMORY;
         
         /* perform the conversion */
-		wlen = MultiByteToWideChar(CP_ACP, 0, szListA, totallen, szStr, wlen);
-		if (wlen == 0)
-		{
-			SCardFree (szStr);
-			return SCARD_F_INTERNAL_ERROR;
-		}
+        wlen = MultiByteToWideChar(CP_ACP, 0, szListA, totallen, szStr, wlen);
+        if (wlen == 0)
+        {
+            SCardFree (szStr);
+            return SCARD_F_INTERNAL_ERROR;
+        }
         
         *pszListW = szStr;
         *pdwLength = wlen;
@@ -739,22 +740,22 @@ LONG WINAPI SCardListReaderGroupsA(
         }  
     }
     else
-	{
+    {
         params.hContext = hContext;
         params.mszGroups = mszGroups;
 
-		if (pcchGroups)
-		{
-			len = *pcchGroups;
+        if (pcchGroups)
+        {
+            len = *pcchGroups;
             params.pcchGroups = &len;
-		} 
+        } 
         else 
             params.pcchGroups = NULL;
 
         lRet = WINSCARD_CALL( SCardListReaderGroups, &params );
         if (pcchGroups)
-		    *pcchGroups = len;
-	}
+            *pcchGroups = len;
+    }
     
     return TranslateToWin32(lRet);
 }
@@ -880,18 +881,18 @@ LONG WINAPI SCardListReadersA(
         }
     }
     else
-	{
+    {
         struct SCardListReaders_params params = { hContext, mszGroups, mszReaders, NULL };
-		if (pcchReaders)
-		{
-			DWORD_LITE dwListLength = *pcchReaders;
+        if (pcchReaders)
+        {
+            DWORD_LITE dwListLength = *pcchReaders;
             params.pcchReaders = &dwListLength;
-			lRet = WINSCARD_CALL( SCardListReaders, &params );
-			*pcchReaders = dwListLength;
-		}
-		else
-			lRet = WINSCARD_CALL( SCardListReaders, &params );        
-	}
+            lRet = WINSCARD_CALL( SCardListReaders, &params );
+            *pcchReaders = dwListLength;
+        }
+        else
+            lRet = WINSCARD_CALL( SCardListReaders, &params );        
+    }
     
 end_label:
     TRACE(" returned %#lx\n",lRet);
@@ -1047,15 +1048,15 @@ LONG WINAPI SCardConnectA(SCARDCONTEXT hContext,
             params.dwPreferredProtocols = dwPreferredProtocols;
         }
 
-		if (pdwActiveProtocol)
-		{
-			DWORD_LITE dwProtocol = *pdwActiveProtocol;
+        if (pdwActiveProtocol)
+        {
+            DWORD_LITE dwProtocol = *pdwActiveProtocol;
             params.pdwActiveProtocol = &dwProtocol;
             lRet = WINSCARD_CALL( SCardConnect, &params );
-			*pdwActiveProtocol = (DWORD) dwProtocol;
-		}
-		else
-			lRet = WINSCARD_CALL( SCardConnect, &params );
+            *pdwActiveProtocol = (DWORD) dwProtocol;
+        }
+        else
+            lRet = WINSCARD_CALL( SCardConnect, &params );
         if(SCARD_S_SUCCESS == lRet)
         {
             /* if PCSCLITE_SCARD_PROTOCOL_RAW is set, put back the MS corresponding value */
@@ -1120,15 +1121,15 @@ LONG WINAPI SCardConnectW(SCARDCONTEXT hContext,
         }
 
         params.szReader = szReaderA;
-		if (pdwActiveProtocol)
-		{
-			DWORD_LITE dwProtocol = *pdwActiveProtocol;
+        if (pdwActiveProtocol)
+        {
+            DWORD_LITE dwProtocol = *pdwActiveProtocol;
             params.pdwActiveProtocol = &dwProtocol;
             lRet = WINSCARD_CALL( SCardConnect, &params );
-			*pdwActiveProtocol = (DWORD) dwProtocol;
-		}
-		else
-			lRet = WINSCARD_CALL( SCardConnect, &params );
+            *pdwActiveProtocol = (DWORD) dwProtocol;
+        }
+        else
+            lRet = WINSCARD_CALL( SCardConnect, &params );
         if(SCARD_S_SUCCESS == lRet)
         {
             /* if PCSCLITE_SCARD_PROTOCOL_RAW is set, put back the MS corresponding value */
@@ -1170,15 +1171,15 @@ LONG WINAPI SCardReconnect(SCARDHANDLE hCard,
             params.dwPreferredProtocols = dwPreferredProtocols;
         }
 
-		if (pdwActiveProtocol)
-		{
-			DWORD_LITE dwProtocol = *pdwActiveProtocol;
+        if (pdwActiveProtocol)
+        {
+            DWORD_LITE dwProtocol = *pdwActiveProtocol;
             params.pdwActiveProtocol = &dwProtocol;
             lRet = WINSCARD_CALL( SCardReconnect, &params );
-			*pdwActiveProtocol = (DWORD) dwProtocol;
-		}
-		else
-			lRet = WINSCARD_CALL( SCardReconnect, &params );
+            *pdwActiveProtocol = (DWORD) dwProtocol;
+        }
+        else
+            lRet = WINSCARD_CALL( SCardReconnect, &params );
 
         if(SCARD_S_SUCCESS == lRet)
         {
@@ -1268,18 +1269,18 @@ LONG WINAPI SCardStatusA(
         lRet = SCARD_E_INVALID_PARAMETER;
     else
     {
-		DWORD_LITE dwNameLen = 0,dwAtrLen=MAX_ATR_SIZE, dwState, dwProtocol = 0;
-		LPDWORD_LITE pdwStateLite = NULL, pdwProtocolLite = NULL, pdwNameLenLite = NULL, pdwAtrLenLite = NULL;
-		BYTE atr[MAX_ATR_SIZE];
-		if (pdwState)
-		{
-			dwState = *pdwState;
-			pdwStateLite = &dwState;
-		}
-		if (pdwProtocol)
-		{
-			pdwProtocolLite = &dwProtocol;
-		}
+        DWORD_LITE dwNameLen = 0,dwAtrLen=MAX_ATR_SIZE, dwState, dwProtocol = 0;
+        LPDWORD_LITE pdwStateLite = NULL, pdwProtocolLite = NULL, pdwNameLenLite = NULL, pdwAtrLenLite = NULL;
+        BYTE atr[MAX_ATR_SIZE];
+        if (pdwState)
+        {
+            dwState = *pdwState;
+            pdwStateLite = &dwState;
+        }
+        if (pdwProtocol)
+        {
+            pdwProtocolLite = &dwProtocol;
+        }
 
         if(!mszReaderNames || !pbAtr 
             || (*pcchReaderLen == SCARD_AUTOALLOCATE) || (*pcbAtrLen == SCARD_AUTOALLOCATE))
@@ -1287,7 +1288,7 @@ LONG WINAPI SCardStatusA(
             /* retreive the information from pcsc-lite */
             BOOL bHasAutoAllocated = FALSE;            
             LPSTR szNames = NULL;
-			
+            
             params.hCard = hCard;
             params.mszReaderName = NULL;
             params.pcchReaderLen = &dwNameLen;
@@ -1297,14 +1298,14 @@ LONG WINAPI SCardStatusA(
             params.pcbAtrLen = &dwAtrLen;
 
             lRet = WINSCARD_CALL( SCardStatus, &params );
-			if (pdwState)
-			{
-				*pdwState = (DWORD) dwState;
-			}
-			if (pdwProtocol)
-			{
-				*pdwProtocol = lite_proto2ms_proto(dwProtocol);
-			}
+            if (pdwState)
+            {
+                *pdwState = (DWORD) dwState;
+            }
+            if (pdwProtocol)
+            {
+                *pdwProtocol = lite_proto2ms_proto(dwProtocol);
+            }
             if(lRet != SCARD_S_SUCCESS && lRet != SCARD_E_INSUFFICIENT_BUFFER)
                 goto end_label;
             
@@ -1400,21 +1401,21 @@ LONG WINAPI SCardStatusA(
                 SCardFree(szNames);
         }
         else
-		{
-			if (pcchReaderLen)
-			{
-				dwNameLen = *pcchReaderLen;
-				pdwNameLenLite = &dwNameLen;
-			}
-			else
-				pdwNameLenLite = NULL;
-			if (pcbAtrLen)
-			{
-				dwAtrLen = *pcbAtrLen;
-				pdwAtrLenLite = &dwAtrLen;
-			}
-			else
-				pdwAtrLenLite = NULL;
+        {
+            if (pcchReaderLen)
+            {
+                dwNameLen = *pcchReaderLen;
+                pdwNameLenLite = &dwNameLen;
+            }
+            else
+                pdwNameLenLite = NULL;
+            if (pcbAtrLen)
+            {
+                dwAtrLen = *pcbAtrLen;
+                pdwAtrLenLite = &dwAtrLen;
+            }
+            else
+                pdwAtrLenLite = NULL;
 
             params.hCard = hCard;
             params.mszReaderName = mszReaderNames;
@@ -1425,23 +1426,23 @@ LONG WINAPI SCardStatusA(
             params.pcbAtrLen = pdwAtrLenLite;
 
             lRet = WINSCARD_CALL( SCardStatus, &params );
-			if (pdwState)
-			{
-				*pdwState = (DWORD) dwState;
-			}
-			if (pdwProtocol)
-			{
-				*pdwProtocol = lite_proto2ms_proto(dwProtocol);
-			}			
-			if (pcchReaderLen)
-			{
-				*pcchReaderLen = dwNameLen;
-			}
-			if (pcbAtrLen)
-			{
-				*pcbAtrLen = dwAtrLen;
-			}
-		}
+            if (pdwState)
+            {
+                *pdwState = (DWORD) dwState;
+            }
+            if (pdwProtocol)
+            {
+                *pdwProtocol = lite_proto2ms_proto(dwProtocol);
+            }            
+            if (pcchReaderLen)
+            {
+                *pcchReaderLen = dwNameLen;
+            }
+            if (pcbAtrLen)
+            {
+                *pcbAtrLen = dwAtrLen;
+            }
+        }
     }
     
 end_label:    
@@ -1528,14 +1529,14 @@ LONG WINAPI SCardGetStatusChangeA(
     }
     else
     {
-		DWORD i;
-		LPSCARD_READERSTATE_LITE pStates = (LPSCARD_READERSTATE_LITE) SCardAllocate(cReaders * sizeof(SCARD_READERSTATE_LITE));
-		memset(pStates,0,cReaders * sizeof(SCARD_READERSTATE_LITE));
-		for(i=0;i<cReaders;i++)
-		{
-			pStates[i].szReader = rgReaderStates[i].szReader;
-			pStates[i].pvUserData = rgReaderStates[i].pvUserData;
-		}
+        DWORD i;
+        LPSCARD_READERSTATE_LITE pStates = (LPSCARD_READERSTATE_LITE) SCardAllocate(cReaders * sizeof(SCARD_READERSTATE_LITE));
+        memset(pStates,0,cReaders * sizeof(SCARD_READERSTATE_LITE));
+        for(i=0;i<cReaders;i++)
+        {
+            pStates[i].szReader = rgReaderStates[i].szReader;
+            pStates[i].pvUserData = rgReaderStates[i].pvUserData;
+        }
 
         /* in pcsclite, dwTimeout = 0 is equivalent to dwTimeout = INFINITE
          * In Windows, dwTimeout = 0 means return immediately
@@ -1575,14 +1576,14 @@ LONG WINAPI SCardGetStatusChangeA(
             }
         }
         else
-		{
-			for(i=0;i<cReaders;i++)
-			{
-				pStates[i].dwCurrentState = rgReaderStates[i].dwCurrentState;
-				pStates[i].dwEventState = rgReaderStates[i].dwEventState;
-				pStates[i].cbAtr = min (MAX_ATR_SIZE, rgReaderStates[i].cbAtr);
-				memcpy(pStates[i].rgbAtr,rgReaderStates[i].rgbAtr,pStates[i].cbAtr);
-			}
+        {
+            for(i=0;i<cReaders;i++)
+            {
+                pStates[i].dwCurrentState = rgReaderStates[i].dwCurrentState;
+                pStates[i].dwEventState = rgReaderStates[i].dwEventState;
+                pStates[i].cbAtr = min (MAX_ATR_SIZE, rgReaderStates[i].cbAtr);
+                memcpy(pStates[i].rgbAtr,rgReaderStates[i].rgbAtr,pStates[i].cbAtr);
+            }
 
             params.hContext = hContext;
             params.dwTimeout = dwTimeout;
@@ -1590,16 +1591,16 @@ LONG WINAPI SCardGetStatusChangeA(
             params.cReaders = cReaders;
             lRet = WINSCARD_CALL( SCardGetStatusChange, &params );
 
-			for(i=0;i<cReaders;i++)
-			{
-				rgReaderStates[i].dwCurrentState = pStates[i].dwCurrentState;
-				rgReaderStates[i].dwEventState = pStates[i].dwEventState;
-				rgReaderStates[i].cbAtr = pStates[i].cbAtr;
-				memcpy(rgReaderStates[i].rgbAtr,pStates[i].rgbAtr, MAX_ATR_SIZE);
-			}			
-		}
-		
-		SCardFree(pStates);
+            for(i=0;i<cReaders;i++)
+            {
+                rgReaderStates[i].dwCurrentState = pStates[i].dwCurrentState;
+                rgReaderStates[i].dwEventState = pStates[i].dwEventState;
+                rgReaderStates[i].cbAtr = pStates[i].cbAtr;
+                memcpy(rgReaderStates[i].rgbAtr,pStates[i].rgbAtr, MAX_ATR_SIZE);
+            }            
+        }
+        
+        SCardFree(pStates);
     }
     
     TRACE(" returned %#lx\n",lRet);
@@ -1678,17 +1679,17 @@ LONG WINAPI SCardControl(
             LPDWORD lpBytesReturned)
 {
         struct SCardControl_params params = { hCard, dwControlCode, pbSendBuffer, cbSendLength, pbRecvBuffer, cbRecvLength, NULL };
-		DWORD_LITE dwBytesReturned = 0;
-		LONG lRet;
-		if (lpBytesReturned)
-		{
-			dwBytesReturned = *lpBytesReturned;
+        DWORD_LITE dwBytesReturned = 0;
+        LONG lRet;
+        if (lpBytesReturned)
+        {
+            dwBytesReturned = *lpBytesReturned;
             params.lpBytesReturned = &dwBytesReturned;
-		}  
+        }  
         lRet = WINSCARD_CALL( SCardControl, &params );
-		if (lpBytesReturned)
-			*lpBytesReturned = dwBytesReturned;
-		return TranslateToWin32(lRet);
+        if (lpBytesReturned)
+            *lpBytesReturned = dwBytesReturned;
+        return TranslateToWin32(lRet);
 }
 
 LONG WINAPI SCardTransmit(
